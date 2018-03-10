@@ -1,0 +1,10 @@
+#version 330
+layout(location = 0) in vec3 vertexAttribute; // per vertex input          
+layout(location = 1) in vec4 colorAttribute;  // per vertex input
+
+out lowp vec4 color;        // interpolated and sent to fragment shader  
+
+void main () {
+	gl_Position = vec4(vertexAttribute, 1.0);
+	color = colorAttribute; // send to fragment shader
+};
