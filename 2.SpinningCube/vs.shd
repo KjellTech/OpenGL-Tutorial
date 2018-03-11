@@ -1,0 +1,13 @@
+#version 330
+
+uniform mat4 PVMatrix;
+
+layout(location = 0) in vec3 vertexAttribute; // per vertex input          
+layout(location = 1) in vec2 uvAttribute;  // per vertex input
+
+out vec2 tex_coord; // interpolated and sent to fragment shader  
+
+void main () {
+	gl_Position = PVMatrix * vec4(vertexAttribute, 1.0);
+	tex_coord = uvAttribute; // send to fragment shader
+};

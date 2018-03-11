@@ -1,0 +1,165 @@
+﻿<!DOCTYPE html>
+
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="utf-8" />
+    <title>Spinning Cube</title>
+</head>
+<body>
+    <p>In this tutorial we learn how to rotate objects or the camera in 3D and how to use textures.
+We use this to create a spinning wooden box.</p>
+
+<h3 id="viewandprojectionmatrices">View and projection matrices</h3>
+
+<p>A vertex is specified in <em>world coordinates</em>.
+When we multiply this vector with the <em>View Matrix</em> we get a position in <em>camera coordinates</em>:</p>
+
+<pre><code class="` language-`">v_camera = ViewMatrix * v_world
+</code></pre>
+
+<p>
+This cordinate is relative to the camera.
+x=y=0 in the center of the camera and z is the distance from the camera.</p>
+
+<p>The camera has a frustum. Only points inside the frustum are rendered.</p>
+
+<p>The <em>Projection Matrix</em> maps the frustum to the cube -1&lt;=x&lt;=1 x -1&lt;=y&lt;=1 x -1&lt;=z&lt;=1: <em>homogenous coordinates</em>:</p>
+
+<pre><code class="` language-`">v_homogenous = ProjectionMatrix * v_camera
+</code></pre>
+
+<p></p>
+
+<p>The vertex shader must set the <em>gl_Position</em> variable in homogenous coordinates.</p>
+
+<p>We use the GLM library for matrix manipulation: https://glm.g-truc.net/0.9.8/index.html.</p>
+
+<p>To create a View Matrix we use the <em>glm::lookAt</em> method:</p>
+
+<pre><code class="` language-`">glm::vec3 eye(4.0f, 4.0f, 4.0f);
+glm::vec3 target(0.0f, 0.0f, 0.0f);
+glm::vec3 up(0.0, 1.0f, 0.0f);
+glm::mat4 viewMatrix = glm::lookAt(eye, target, up);
+</code></pre>
+
+<p></p>
+
+<p>To create a Projection Matrix we use the <em>glm::perspective</em> method:</p>
+
+<pre><code class="` language-`">glm::mat4 perspectiveMatrix = glm::perspective(45.0f,  // fovy
+                                                  1.0f,  // aspect
+                                                  0.1f,  // znear
+                                               100.0f);  // zfar
+</code></pre>
+
+<p></p>
+
+<p>We multiply these together to create a combined perpective and view matrix:</p>
+
+<pre><code class="` language-`">glm::mat4 PVMatrix = perspectiveMatrix * viewMatrix;
+</code></pre>
+
+<p></p>
+
+<p>We send this matrix to the vertex shader:</p>
+
+<pre><code class="` language-`">GLint PVMatrixLocation = glGetUniformLocation(shader_programme, "PVMatrix");
+        glUniformMatrix4fv(PVMatrixLocation, 1, GL_FALSE, &amp;PVMatrix[0][0]);
+</code></pre>
+
+<p> </p>
+
+<p>where we use it to calculate the gl_Position in homogenous coordinates:</p>
+
+<pre><code class="` language-`">#version 330
+
+uniform mat4 PVMatrix;
+
+layout(location = 0) in vec3 vertexAttribute; // per vertex input          
+
+void main () {
+    gl_Position = PVMatrix * vec4(vertexAttribute, 1.0);
+};
+</code></pre>
+
+<p></p>
+
+<h3 id="textures">Textures</h3>
+
+<p>First we create a name (identifier) for a texture:</p>
+
+<pre><code class="` language-`">GLuint texid;
+glGenTextures(1, &amp;texid);
+</code></pre>
+
+<p>
+Next we bind this texture to a target:</p>
+
+<pre><code class="` language-`">glBindTexture(GL_TEXTURE_2D, texid);
+</code></pre>
+
+<p></p>
+
+<p>Then we must specify which texture unit we are referring to:</p>
+
+<pre><code class="` language-`">glActiveTexture(GL_TEXTURE0); // first texture unit
+GLint sampler2dLoc = glGetUniformLocation(shader_programme, "tex");
+glUniform1i(sampler2dLoc, 0); // index of the texture unit = 0 since we use GL_TEXTURE0
+</code></pre>
+
+<p>
+We read the texture unit in the fragment shader:</p>
+
+<pre><code class="` language-`">uniform sampler2D tex;
+</code></pre>
+
+<p></p>
+
+<p>We upload the texture to the GPU once by using <em>glTexImage2D</em>. Before that we must enable and set some parameters:</p>
+
+<pre><code class="` language-`">std::vector&lt;unsigned char&gt; image;
+unsigned width, height;
+unsigned error = lodepng::decode(image, width, height, "wooden-crate.png");
+glEnable(GL_TEXTURE_2D);
+glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST); //GL_NEAREST = no smoothing
+glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+glTexImage2D(GL_TEXTURE_2D, 
+                0, // lod level, 0 = full resolution 
+                4, // number of color components in the texture 
+                width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, &amp;image[0]);
+</code></pre>
+
+<p></p>
+
+<p>We must pass a u and v coordinate: [0.0,1.0] for each vertex using <em>glVertexAttribPointer</em> similar to how we pass the vertices.
+We then read this attribute in the vertex shader and pass it to the fragment shader:</p>
+
+<pre><code class="` language-`">#version 330
+
+layout(location = 1) in vec2 uvAttribute;  // per vertex input
+
+out vec2 tex_coord; // interpolated and sent to fragment shader  
+
+void main () {
+    tex_coord = uvAttribute; // send to fragment shader
+};
+</code></pre>
+
+<p>
+Finally we use this texture coordinate in the fragment shader to set the fragment color:</p>
+
+<pre><code class="` language-`">#version 330
+
+in vec2 tex_coord; // input from vertex shader
+uniform sampler2D tex;
+
+layout(location = 0) out vec4 frag_colour; // the first output from the fragment shader is used as the fragment color
+
+void main () {
+    frag_colour = texture2D(tex,tex_coord.st);
+};
+</code></pre>
+
+<p></p>
+</body>
+</html>
